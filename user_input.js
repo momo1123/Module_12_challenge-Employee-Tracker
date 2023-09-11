@@ -27,7 +27,6 @@
 const express = require('express');
 const mysql = require('mysql2');
 const inquirer = require('inquirer');
-const fs = require('fs');
 // const New_db_connection = require('./server')
 // New_db_connection.db;
 
@@ -50,7 +49,7 @@ function UserInput() {
             {
                 type: 'list',
                 name: 'view_types',
-                choices: ['View all departments', 'View all roles', 'View all employees', 'Add a department', 'Add a role', 'Add an employee', 'Update an employee role', 'Rest all'],
+                choices: ['View all departments', 'View all roles', 'View all employees', 'Add a department', 'Add a role', 'Add an employee', 'Update an employee role'],
             },
 
         ])
@@ -76,10 +75,12 @@ function UserInput() {
                 AddEmployee();
             } else if (view_types === 'Update an employee role') {
                 console.log("Showing [Update an employee role]");
+                updateEmployeeRole();
             } else
                 console.log("If else failed");
             // UserAdd();
         })
+
 }
 
 function ViewDepartment() {
@@ -90,21 +91,18 @@ function ViewDepartment() {
         db.query(sql, function (err, result) {
             if (err) throw err;
             console.log("1 record inserted");
-            console.log(result);
+            console.table(result);
         });
     });
 }
 
 function ViewEmployees() {
-    db.connect(function (err) {
-        if (err) throw err;
-        console.log("Showing all Employees");
-        var sql = "SELECT * FROM employees";
-        db.query(sql, function (err, result) {
-            if (err) throw err;
-            console.log(result);
-        });
-    });
+    var sql = ("SELECT * FROM employees");
+    db.promise().query(sql)
+        .then(([data]) => {
+            let employees = data;
+            console.table(data);
+        }).catch(err => console.error(err))
 }
 
 
@@ -116,7 +114,7 @@ function ViewRoles() {
         db.query(sql, function (err, result) {
             if (err) throw err;
             console.log("1 record inserted");
-            console.log(result);
+            console.table(result);
         });
     });
 }
@@ -132,7 +130,6 @@ function AddRole() {
 
         ])
         .then((data) => {
-            // THEN I am presented with the following options: view all departments, view all roles, view all employees, add a department, add a role, add an employee, and update an employee role
             const { add_role } = data;
             db.connect(function (err) {
                 if (err) throw err;
@@ -141,13 +138,11 @@ function AddRole() {
                 const roleTitle = roleArray[0];
                 const roleSalary = roleArray[1];
                 var sql = "INSERT INTO roles (title, salary) VALUES ('" + roleTitle + "'," + roleSalary + ")";
-
-
                 console.log("Logging for testing sql -->> sql");
                 db.query(sql, function (err, result) {
                     if (err) throw err;
                     console.log("1 record inserted");
-                    console.log(result);
+                    console.table(result);
                 });
             });
 
@@ -168,7 +163,6 @@ function AddDepartment() {
 
         ])
         .then((data) => {
-            // THEN I am presented with the following options: view all departments, view all roles, view all employees, add a department, add a role, add an employee, and update an employee role
             const { add_department } = data;
             db.connect(function (err) {
                 if (err) throw err;
@@ -202,13 +196,13 @@ function AddEmployee() {
             db.connect(function (err) {
                 if (err) throw err;
                 console.log("Adding selected Employee");
-                // THEN I am prompted to enter the employee’s first name, last name, role, and manager, and that employee is added to the database
                 const employeeArray = add_employee.split(" ");
                 const employeeFirstName = employeeArray[0];
                 const employeeLastName = employeeArray[1];
-                const employeeRole = employeeArray[2];
-                const employeeManager = employeeArray[3];
-                var sql = "INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES ('" + employeeFirstName + "','" + employeeLastName + "'"+ employeeRole + "," + employeeManager + ")";
+                // const employeeRole = employeeArray[2];
+                // const employeeManager = employeeArray[3];
+                var sql = "INSERT INTO employees (first_name, last_name) VALUES ('" + employeeFirstName + "','" + employeeLastName + "')";
+                //  + "'" + employeeRole + "," + employeeManager + ")";
                 db.query(sql, function (err, result) {
                     if (err) throw err;
                     console.log("1 record inserted");
@@ -219,41 +213,83 @@ function AddEmployee() {
             console.log(err);
         });
 }
-
-function UpdateEmployeeRole() {
-    inquirer
-        .prompt([
-            {
-                type: 'input',
-                name: 'update_employee_role',
-                message: 'What role would you like to update?: ',
-            },
-
-        ])
-        .then((data) => {
-            const { add_role } = data;
-            db.connect(function (err) {
-                if (err) throw err;
-                console.log("Adding selected Role");
-                const roleArray = add_role.split(" ");
-                const roleTitle = roleArray[0];
-                const roleSalary = roleArray[1];
-                var sql = "INSERT INTO roles (title, salary) VALUES ('" + roleTitle + "'," + roleSalary + ")";
-
-
-                console.log("Logging for testing sql -->> sql");
-                db.query(sql, function (err, result) {
-                    if (err) throw err;
-                    console.log("1 record inserted");
-                    console.log(result);
-                });
-            });
-
-
-        }).catch((err) => {
-            console.log(err);
+// ***** CURRENT ********
+function updateEmployeeRole() {
+    db.promise().query("SELECT employees.employee_id AS id,employees.first_name AS first_name,employees.last_name AS last_name,roles.title AS title,departments.name AS department,roles.salary AS salary,CONCAT(mgr.first_name, ' ', mgr.last_name) AS manager FROM employees INNER JOIN roles ON employees.role_id = roles.role_id INNER JOIN departments ON roles.department_id = departments.department_id LEFT JOIN employees AS mgr ON employees.manager_id = mgr.employee_id;")
+        .then(([_rows_]) => {
+            let employees = _rows_;
+        //     const employeeChoices = employees.map(({ _id_, _first_name_, _last_name_ }) => ({
+        //         name: ${ first_name } ${ last_name }`,`
+        //   value: _id_
+        // }));
+    prompt([
+        {
+            type: "list",
+            name: "employeeId",
+            message: "Which employee's role do you want to update?",
+            choices: employeeChoices
+        }
+    ])
+        .then(_res_ => {
+            let employeeId = _res_.employeeId;
+            db.promise.query("SELECT role.role_id as id, role.title as title, department.name AS department, role.salary as Salary FROM role INNER JOIN department ON role.department_id = department.department_id;")
+                .then(([_rows_]) => {
+                    let roles = _rows_;
+                    const roleChoices = roles.map(({ _id_, _title_ }) => ({
+                        name: _title_,
+                        value: _id_
+                    }));
+                    prompt([
+                        {
+                            type: "list",
+                            name: "roleId",
+                            message: "Which role do you want to assign the selected employee?",
+                            choices: roleChoices
+                        }
+                    ])
+                        // .then(_res_ => function updateRole(employeeId, _res_.roleId) { }
+                        //     .then(() => console.log("Updated employee's role"))
+                        //     .then(() => loadMainPrompts()))
+              });
         });
-}
+})
+  }
+
+
+// function UpdateEmployeeRole() {
+//     inquirer
+//         .prompt([
+//             {
+//                 type: 'input',
+//                 name: 'update_employee_role',
+//                 message: 'What role would you like to update?: ',
+//             },
+
+//         ])
+//         .then((data) => {
+//             const { add_role } = data;
+//             db.connect(function (err) {
+//                 if (err) throw err;
+//                 console.log("Adding selected Role");
+//                 const roleArray = add_role.split(" ");
+//                 const roleTitle = roleArray[0];
+//                 const roleSalary = roleArray[1];
+//                 var sql = "INSERT INTO roles (title, salary) VALUES ('" + roleTitle + "'," + roleSalary + ")";
+
+
+//                 console.log("Logging for testing sql -->> sql");
+//                 db.query(sql, function (err, result) {
+//                     if (err) throw err;
+//                     console.log("1 record inserted");
+//                     console.log(result);
+//                 });
+//             });
+
+
+//         }).catch((err) => {
+//             console.log(err);
+//         });
+// }
 
 
 
